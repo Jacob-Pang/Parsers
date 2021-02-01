@@ -223,7 +223,7 @@ class EventParser:
     @staticmethod
     def ParseMap (event_command: str, exit_sequences: list = [","]):
         assert event_command[0] == "{"
-        event_command, argmap = event_command[1::].strip(), MapEvent
+        event_command, argmap = event_command[1::].strip(), MapEvent()
 
         while event_command:
             if event_command[0] == "}":
