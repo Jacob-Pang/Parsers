@@ -21,21 +21,23 @@ Parse-Runner for pushing function calls to and from CMD.
 ## Parser Synatx for creating Events
 
 function:
-    <run: module.function> arg, -kw=arg, ... </run>
-    the module must be importable, that is, calling the code 
-    <import module> should not raise errors, either:
-    -   the module path is in the systme environment variables
-    -   the entire module path is specified
-    -   the module is in the same directory as Events.py
+        <run: module.function> arg, -kw=arg, ... </run>
+
+the module must be importable, that is, calling the code 
+import module should not raise errors, either:
+-   the module path is in the systme environment variables
+-   the entire module path is specified
+-   the module is in the same directory as Events.py
 
 list:    
-    [arg -> type, ...] -> type
-    [[arg, ...] -> type, [arg, ...]] -> type
-    elements should NOT be separated into CMD arguments due
-    to additional commas being appended, causing ambiguity 
-    on whether to append an empty element.
+        [arg -> type, ...] -> type
+        [[arg, ...] -> type, [arg, ...]] -> type
 
-    typehints are broadcasted in nested lists.
+- elements should NOT be separated into CMD arguments due to 
+      additional commas being appended, causing ambiguity on whether 
+      to append an empty element.
+
+- typehints are broadcasted in nested lists.
 
 maps (dict):    
     {kw -> type: arg -> type, ...} -> (type, type)
@@ -51,12 +53,12 @@ To parse-run a function from another module through Events, call
 Events with the appropriate argument syntax:
 
   ### foo.py
-  def foo (x):
-      print(x + 1)
+        def foo (x):
+            print(x + 1)
 
   ### execution from command line
-  cwd. python ParseRunEvent.py "<run: foo.foo> 1 -> int </run>"
-  // prints 2
+        cwd. python ParseRunEvent.py "<run: foo.foo> 1 -> int </run>"
+        // prints 2
 
 ## Integration into other modules
 
@@ -65,12 +67,12 @@ function in another module, decorate the function with the
 @parsable_from_cmd decorator:
 
   ### foo.py 
-  from ParseRunEvent import parsable_from_cmd
+        from ParseRunEvent import parsable_from_cmd
 
-  @parsable_from_cmd
-  def foo (x):
-      print(x + 1)
+        @parsable_from_cmd
+        def foo (x):
+            print(x + 1)
 
   ### execution from command line
-  cwd. python -c "import foo; foo.foo()" "1 -> int"
-  // prints 2
+        cwd. python -c "import foo; foo.foo()" "1 -> int"
+        // prints 2
