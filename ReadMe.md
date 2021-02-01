@@ -31,7 +31,7 @@ function:
   import module should not raise errors, either:
   -   the module path is in the systme environment variables
   -   the entire module path is specified
-  -   the module is in the same directory as Events.py
+  -   the module is in the same directory as ParseRunEvent.py
 
 list:
   ```
