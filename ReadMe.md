@@ -13,10 +13,11 @@ Parse-Runner for pushing function calls to and from CMD.
 -   Collection-type and Function events are chainable as per
       normal method / construction calls:
     ```
-        f(g(x))         = <run: f> <run g:> x </run> </run>
-        [f(x)]          = [<run: f> x </run>]
-        {f(x): g(x)}    = {<run: f> x </run>: <run: g> x </run>}
-        ... etc.
+    f(g(x))         = <run: f> <run g:> x </run> </run>
+    [f(x)]          = [<run: f> x </run>]
+    {f(x): g(x)}    = {<run: f> x </run>: <run: g> x </run>}
+    f(x) then g(x)  = <run: f> x </run> <run g:> x </run>
+    ... etc.
     ```
 
 ## Parser Synatx for creating Events
