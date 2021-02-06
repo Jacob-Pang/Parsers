@@ -93,8 +93,8 @@ MainProcess
       On runtime error, the script is paused in a definite VISIBLE environment:
       where subprocess_newconsole is TRUE, the PAUSE occurs on the new console,
       otherwise MainProcess RESPAWNS a new VISIBLE console upon error:
-
-      LOGIC FLOW (EMBEDDED SUBPROCESS):
+      ```
+      // LOGIC FLOW (EMBEDDED SUBPROCESS):
       CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE / HIDDEN)
                                                                           |
                       EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
@@ -103,13 +103,13 @@ MainProcess
                       |
                        -> ParseRunEvent (EXECUTION) -> ERROR -> PAUSE -> EXIT 1
 
-      LOGIC FLOW (SUBPROCESS IN NEW CONSOLE):
+      // LOGIC FLOW (SUBPROCESS IN NEW CONSOLE):
       CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE)
                                                                        |
                    EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
                                          |
               EXIT 1 <- PAUSE <- ERROR <-
-
+      ```
       (what's the use?)
       Occurrence of errors cannot be debugged during processes called through a
       hidden console, and lead to immediate termination of the script. The feature
