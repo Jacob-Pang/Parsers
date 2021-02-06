@@ -293,9 +293,9 @@ class TryEvent (Event):
             if parse_trace: ParseTrace.trace(f"   SET EXCEPTION = {exception}",
                     stdout_indent)
             self.exception = exception
-
-        white_space, exit_sequence, command = CommandParser.parse_next(
-                command, exit_sequences, parse_trace=False)
+        else:
+            white_space, exit_sequence, command = CommandParser.parse_next(
+                    command, exit_sequences, parse_trace=False)
         
         if parse_trace: ParseTrace.parse_output(self, command, stdout_indent)
         return self, exit_sequence, command
