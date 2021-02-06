@@ -49,7 +49,7 @@ Lists:
   ```
   -   TYPEHINTS are broadcasted across nested events
   -   supports MULTIPROCESSING of running subevents with exceptions of
-      functions decorated with @pardable_from_cmd (cannot be pickled).
+      functions decorated with @parsable_from_cmd (cannot be pickled).
 
 Maps / Dictionaries:
   ```    
