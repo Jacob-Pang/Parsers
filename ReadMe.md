@@ -82,38 +82,38 @@ MainProcess
   
   PARAMETERS
   -   parse_trace
-      Trace the steps during the parsing of arguments
+        Trace the steps during the parsing of arguments
   -   run_trace (NOT IMPLEMENTED)
-      Trace the steps during running of the MainProcess and subevents.
+        Trace the steps during running of the MainProcess and subevents.
   -   multiprocess
-      Use of multiprocessing to run IMMEDIATE subevents: MainProcess extends
-      the ListEvent class, and behaves in the same manner during running.
+        Use of multiprocessing to run IMMEDIATE subevents: MainProcess extends
+        the ListEvent class, and behaves in the same manner during running.
   -   spawn_subprocess
-      Spawns a subprocess to perform the parsing and execution of the MainProcess.
-      On runtime error, the script is paused in a definite VISIBLE environment:
-      where subprocess_newconsole is TRUE, the PAUSE occurs on the new console,
-      otherwise MainProcess RESPAWNS a new VISIBLE console upon error:
-      ```
-      // LOGIC FLOW (EMBEDDED SUBPROCESS):
-      CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE / HIDDEN)
-                                                                          |
-                      EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
-                                            |
-            SUBPROCESS (VISIBLE) <- ERROR <-
-                      |
-                       -> ParseRunEvent (EXECUTION) -> ERROR -> PAUSE -> EXIT 1
+        Spawns a subprocess to perform the parsing and execution of the MainProcess.
+        On runtime error, the script is paused in a definite VISIBLE environment:
+        where subprocess_newconsole is TRUE, the PAUSE occurs on the new console,
+        otherwise MainProcess RESPAWNS a new VISIBLE console upon error:
+        ```
+        // LOGIC FLOW (EMBEDDED SUBPROCESS):
+        CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE / HIDDEN)
+                                                                            |
+                        EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
+                                              |
+              SUBPROCESS (VISIBLE) <- ERROR <-
+                        |
+                         -> ParseRunEvent (EXECUTION) -> ERROR -> PAUSE -> EXIT 1
 
-      // LOGIC FLOW (SUBPROCESS IN NEW CONSOLE):
-      CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE)
-                                                                       |
-                   EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
-                                         |
-              EXIT 1 <- PAUSE <- ERROR <-
-      ```
-      (what's the use?)
-      Occurrence of errors cannot be debugged during processes called through a
-      hidden console, and lead to immediate termination of the script. The feature
-      enables users to identify the errors and control termination of the script.
+        // LOGIC FLOW (SUBPROCESS IN NEW CONSOLE):
+        CMD (VISBLE / HIDDEN) -> ParseRunEvent (NO EXECUTION) -> SUBPROCESS (VISBLE)
+                                                                         |
+                     EXIT 0 <- NO ERROR <- + ParseRunEvent (EXECUTION) <-
+                                           |
+                EXIT 1 <- PAUSE <- ERROR <-
+        ```
+        (what's the use?)
+        Occurrence of errors cannot be debugged during processes called through a
+        hidden console, and lead to immediate termination of the script. The feature
+        enables users to identify the errors and control termination of the script.
   -   subprocess_newconsole
       Specifies that the subprocess is spawned in a new VISIBLE console (forced
       visibility of code execution)
