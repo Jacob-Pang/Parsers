@@ -5,7 +5,7 @@ class Event: # interface
     def run (self):
         pass
 
-    def parse_command (self, command: str) -> str:
+    def parse_command (self, command: str, exit_sequence: tuple) -> tuple:
         pass
 
     def astype (self):
@@ -29,7 +29,6 @@ class Event: # interface
 
         return expected_event
 
-
 class ListEvent(list, Event):
     def __init__ (self, *args, multiprocess=False):
         super(ListEvent, self).__init__(*args)
@@ -41,7 +40,11 @@ class ListEvent(list, Event):
         
         return [ Event.run_event(subevent) for subevent in self ]
 
-    def parse_command (self, command: str, exit_sequences: tuple) -> tuple:
+    def parse_command (self, command: str, exit_sequences: tuple,
+            parse_trace: bool = True, stdout_indent: int = 0) -> tuple:
+        if parse_trace: ParseTrace.parse_input("ListEvent", command, 
+                stdout_indent)
+
         command = command.strip()
         assert command[0] == "["
         command = command[1::].strip()
@@ -54,31 +57,39 @@ class ListEvent(list, Event):
 
             if command[0:2] == "--":
                 setting, exit_sequence, command = CommandParser.parse_next(
-                        command[2::], (" ", ",", "]"))
+                        command[2::], (" ", ",", "]"), parse_trace,
+                        stdout_indent + 1)
+
+                if parse_trace: ParseTrace.set_event_setting(setting, stdout_indent)
                 setattr(self, setting, True)
                 continue
 
             # event setting flag
             subevent, exit_sequence, command = CommandParser.parse_next(
-                    command, (",", "]"))
+                    command, (",", "]"), parse_trace, stdout_indent + 1)
 
+            if parse_trace: ParseTrace.append_subevent(subevent, stdout_indent)
             self.append(subevent)
-        
+            
         if command[0:2] == "->":
             type_hint, exit_sequence, command = CommandParser.parse_next(
-                command[2::], exit_sequences)
+                command[2::], exit_sequences, parse_trace, stdout_indent + 1)
+            
+            if parse_trace: ParseTrace.trace(f"   BROADCAST_TYPE = {type_hint}",
+                    stdout_indent)
             self.astype(type_hint.strip())
+
         else:
             white_space, exit_sequence, command = CommandParser.parse_next(
-                command, exit_sequences)
+                command, exit_sequences, parse_trace=False)
         
+        if parse_trace: ParseTrace.parse_output(self, command, stdout_indent)
         return self, exit_sequence, command
 
     def astype (self, type_hint):
         # broadcasting of types
         self = ListEvent([ Event.map_type(subevent, type_hint) for subevent 
                 in self ], multiprocess=self.multiprocess)
-
 
 class MapEvent (dict, Event):
     def __init__ (self, *args, **kwargs):
@@ -90,7 +101,11 @@ class MapEvent (dict, Event):
             for key_subevent, arg_subevent in self.items()
         }
 
-    def parse_command (self, command: str, exit_sequences: tuple) -> tuple:
+    def parse_command (self, command: str, exit_sequences: tuple, parse_trace: bool,
+            stdout_indent: int = 0) -> tuple:
+        if parse_trace: ParseTrace.parse_input("MapEvent", command, 
+                stdout_indent)
+
         command = command.strip()
         assert command[0] == "{"
         command = command[1::].strip()
@@ -103,24 +118,34 @@ class MapEvent (dict, Event):
 
             if command[0:2] == "--":
                 setting, exit_sequence, command = CommandParser.parse_next(
-                        command[2::], (" ", ",", "}"))
+                        command[2::], (" ", ",", "}"), parse_trace,
+                        stdout_indent + 1)
+
+                if parse_trace: ParseTrace.set_event_setting(setting, stdout_indent)
                 setattr(self, setting, True)
                 continue
         
             key_subevent, exit_sequence, command = CommandParser.parse_next(
-                    command, (":"))
+                    command, (":"), parse_trace, stdout_indent + 1)
             arg_subevent, exit_sequence, command = CommandParser.parse_next(
-                    command, (",", "}"))
+                    command, (",", "}"), parse_trace, stdout_indent + 1)
             
+            if parse_trace: ParseTrace.append_subevent(f" [{key_subevent}]:{arg_subevent}",
+                    stdout_indent)
+                
             self[key_subevent] = arg_subevent
 
         if command[0:2] == "->":
             type_hint, exit_sequence, command = CommandParser.parse_next(
-                command[2::], exit_sequences)
+                command[2::], exit_sequences, parse_trace, stdout_indent + 1)
+
+            if parse_trace: ParseTrace.trace(f"   BROADCAST_TYPE = {type_hint}",
+                    stdout_indent)
+
             self.astype(type_hint.strip())
         else:
             white_space, exit_sequence, command = CommandParser.parse_next(
-                command, exit_sequences)
+                command, exit_sequences, parse_trace=False)
         
         return self, exit_sequence, command
 
@@ -137,7 +162,6 @@ class MapEvent (dict, Event):
             for key_subevent, arg_subevent in self
         })
 
-
 class FunctionEvent (Event):
     def __init__ (self, function=None):
         super(FunctionEvent, self).__init__()
@@ -150,7 +174,12 @@ class FunctionEvent (Event):
                 **Event.run_event(self.kwargs))
 
     def parse_command(self, command: str, exit_sequences: tuple,
+            parse_trace: bool = True, stdout_indent: int = 0, 
             wrapper_function=None) -> tuple:
+
+        if parse_trace: ParseTrace.parse_input("FunctionEvent FROM_"
+                + (f"WRAPPER:{wrapper_function}" if wrapper_function else "CMD"),
+                command, stdout_indent)
 
         if not wrapper_function:
             command = command.strip()
@@ -167,6 +196,8 @@ class FunctionEvent (Event):
                     self.function = getattr(self.function, member)
 
             command = command[command.find(">") + 1::].strip()
+            if parse_trace: ParseTrace.trace(f"   SET_FUNCTION = {self.function}",
+                    stdout_indent)
         else:
             self.function = wrapper_function
 
@@ -178,62 +209,136 @@ class FunctionEvent (Event):
 
             if command[0:2] == "--":
                 setting, exit_sequence, command = CommandParser.parse_next(
-                        command[2::], (" ", ",", "</run>"))
+                        command[2::], (" ", ",", "</run>"), parse_trace, 
+                        stdout_indent + 1)
+
+                if parse_trace: ParseTrace.set_event_setting(setting, stdout_indent)
                 setattr(self, setting, True)
                 continue
 
             if command[0] == "-":
                 key = command[1:command.find("=")].strip()
                 subevent, exit_sequence, command = CommandParser.parse_next(
-                        command[command.find("=") + 1::].strip(), (",", "</run>"))
+                        command[command.find("=") + 1::].strip(), (",", "</run>"),
+                        parse_trace, stdout_indent + 1)
 
+                if parse_trace: ParseTrace.append_subevent(f"KWARG: {key} = {subevent}",
+                        stdout_indent)
                 self.kwargs[key] = subevent
             else:
                 subevent, exit_sequence, command = CommandParser.parse_next(
-                        command, (",", "</run>"))
+                        command, (",", "</run>"), parse_trace, stdout_indent + 1)
 
+                if parse_trace: ParseTrace.append_subevent(f"ARG: {subevent}",
+                        stdout_indent)
                 self.args.append(subevent)
 
         white_space, exit_sequence, command = CommandParser.parse_next(
-                command, exit_sequences)
-
+                command, exit_sequences, parse_trace=False)
+        
+        if parse_trace: ParseTrace.parse_output(self, command, stdout_indent)
         return self, exit_sequence, command
 
     def astype (self, type_hint):
         # no type broadcasting allowed
         pass
 
+class TryEvent (Event):
+    def __init__ (self, exit_precedent: bool =False):
+        super(TryEvent, self).__init__()
+        self.precedent = None
+        self.exception = None
+
+    def run (self):
+        try:
+            return Event.run_event(self.precedent)
+        except:
+            return Event.run_event(self.exception)
+
+    def parse_command(self, command: str, exit_sequences: tuple = (","),
+            parse_trace: bool = True, stdout_indent: int = 0):
+        if parse_trace: ParseTrace.parse_input("TryEvent", command, 
+                stdout_indent)
+
+        command = command.strip()
+        if command[0:5] == "<try>": command = command[5::].strip()
+
+        exit_sequence = ""        
+        while command and self.precedent is None and exit_sequence != "</try>":
+            if command[0:6] == "</try>":
+                command, exit_sequence = command[6::], "</try>"
+                break
+
+            if command[0:2] == "--":
+                setting, exit_sequence, command = CommandParser.parse_next(
+                        command[2::], (" ", ",", "</truy>"), parse_trace, 
+                        stdout_indent + 1)
+
+                if parse_trace: ParseTrace.set_event_setting(setting, stdout_indent)
+                setattr(self, setting, True)
+                continue
+
+            precedent, exit_sequence, command = CommandParser.parse_next(
+                    command, (",", "</try>"), parse_trace, stdout_indent + 1)
+
+            if parse_trace: ParseTrace.trace(f"   SET PRECEDENT = {precedent}",
+                    stdout_indent)
+            self.precedent = precedent
+
+        if exit_sequence != "</try>":
+            self.exception = TryEvent()
+            exception, exit_sequence, command = self.exception.parse_command(
+                command, exit_sequences, parse_trace, stdout_indent + 1)
+
+            if parse_trace: ParseTrace.trace(f"   SET EXCEPTION = {exception}",
+                    stdout_indent)
+            self.exception = exception
+
+        white_space, exit_sequence, command = CommandParser.parse_next(
+                command, exit_sequences, parse_trace=False)
+        
+        if parse_trace: ParseTrace.parse_output(self, command, stdout_indent)
+        return self, exit_sequence, command
+
+    def astype(self, type_hint: str):
+        pass
+
 
 class MainProcess (ListEvent):
     def __init__ (self, *args, multiprocess=False, spawn_subprocess=False, 
-            subprocess_nowindow=False, echo_exitstatus=False):
+            subprocess_newconsole=False, parse_trace=False, run_trace=False):
 
         super(MainProcess, self).__init__(*args,
                 multiprocess=multiprocess)
 
         self.spawn_subprocess = spawn_subprocess
-        self.subprocess_nowindow = subprocess_nowindow
-        self.echo_exitstatus = echo_exitstatus
+        self.parse_trace = parse_trace
+        self.run_trace = run_trace
+        self.subprocess_newconsole = subprocess_newconsole
 
     def spawn_runsubprocess (self, command: str) -> None:
-        if self.subprocess_nowindow:
-            respawn_onerror, creationflag = "1", subprocess.CREATE_NO_WINDOW
+        '''
+        '''
+        command = [ "EventSubprocess.bat", sys.executable,
+                " " + command + " ", "-" ]
+        
+        if self.parse_trace:    command.append("--parse_trace")
+        if self.run_trace:      command.append("--run_trace")
+        if self.subprocess_newconsole:
+            spawn = subprocess.Popen(command, cwd=os.getcwd(),
+                    creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
-            respawn_onerror, creationflag = "0", subprocess.CREATE_NEW_CONSOLE
-
-        echo_status = "1" if self.echo_exitstatus else "0"
-
-        spawn = subprocess.Popen([ "EventSubprocess.bat", os.getcwd(), 
-                respawn_onerror, sys.executable, command, echo_status ], 
-                creationflags=creationflag)
-
+            command[3] = "RESPAWN"
+            spawn = subprocess.Popen(command, cwd=os.getcwd())
+        
         stdout, stderr = spawn.communicate()
         sys.exit(spawn.returncode)
 
     def parse_process_params (self, *sysargs) -> tuple:
         commands = []
+
         for sysarg in sysargs:
-            if "--" in sysarg:
+            if sysarg[0:2] == "--":
                 setattr(self, sysarg[2::].strip(), True)
             else:   commands.append(sysarg)
         
@@ -248,11 +353,11 @@ class MainProcess (ListEvent):
             process.spawn_runsubprocess(command)
 
         process, exit_sequence, exit_command = process.parse_command(
-            CommandParser.encrypt("[" + command + "]"), (","))
+            CommandParser.encrypt("[" + command + "]"), (","),
+            parse_trace=process.parse_trace, stdout_indent=0)
 
         sys.exit(process.run())
-
-
+    
 class CommandParser:
     encryption_map = {
       "(": "%&#40%",    ")": "%&#41%",
@@ -295,7 +400,8 @@ class CommandParser:
         return command
 
     @staticmethod
-    def parse_next (command: str, exit_sequences: tuple):
+    def parse_next (command: str, exit_sequences: tuple, parse_trace: bool = True,
+            stdout_indent: int = 0):
         '''
             greedy-recursive algorithm.
             returns
@@ -307,19 +413,19 @@ class CommandParser:
 
         if command[0:5] == "<run:":
             return FunctionEvent().parse_command(command,
-                    exit_sequences)
+                    exit_sequences, parse_trace, stdout_indent)
         
-        if command[0:5] == "<try:":
-            return FunctionEvent().parse_command(command,
-                    exit_sequences)
+        if command[0:5] == "<try>":
+            return TryEvent().parse_command(command, exit_sequences,
+                    parse_trace, stdout_indent)
 
         if command[0] == "[":
             return ListEvent().parse_command(command,
-                    exit_sequences)
+                    exit_sequences, parse_trace, stdout_indent)
 
         if command[0] == "{":
             return MapEvent().parse_command(command,
-                    exit_sequences)
+                    exit_sequences, parse_trace, stdout_indent)
 
         # var argument ***********************************************
         exit_indices = [ command.find(sequence) for sequence 
@@ -338,12 +444,37 @@ class CommandParser:
             event = CommandParser.type_map[event[1].strip()](
                     event[0].strip())
 
-        return (event, exit_sequence, command[mindex + 
-                len(exit_sequence)::].strip())
+        command = command[mindex + len(exit_sequence)::].strip()
+
+        if parse_trace: ParseTrace.parse_output(event, command, stdout_indent)
+        return (event, exit_sequence, command)
+
+class ParseTrace ():
+    @staticmethod
+    def parse_input (event_type: str, command: str, stdout_indent: int = 0):
+        ParseTrace.trace(f"*  PARSING {event_type}.", stdout_indent)
+        ParseTrace.trace(f"   INPUT_CMD: {command}", stdout_indent)
+
+    @staticmethod
+    def append_subevent (subevent, stdout_indent: int = 0):
+        ParseTrace.trace(f"   APPEND {subevent}.", stdout_indent)
+
+    @staticmethod
+    def set_event_setting (setting: str, stdout_indent: int = 0):
+        ParseTrace.trace(f"   SET EVENT_SETTING: {setting}", stdout_indent)
+
+    @staticmethod
+    def parse_output (event: Event, command: str, stdout_indent: int = 0):
+        ParseTrace.trace(f"/* PARSED {event}.", stdout_indent)
+        ParseTrace.trace(f"   OUTPUT_CMD: {command}", stdout_indent)
+
+    @staticmethod
+    def trace (message: str, stdout_indent: int = 0):
+        print(f"{'   ' * stdout_indent}{message}")
 
 # function decorator
 def parsable_from_cmd (function, spawn_subprocess=False,
-        subprocess_nowindow=False):
+        subprocess_newconsole=False):
 
     def wrapped_function(*args, **kwargs):
         redirected_from = inspect.stack()[1]
@@ -351,19 +482,22 @@ def parsable_from_cmd (function, spawn_subprocess=False,
         if redirected_from[3] != "<module>": 
             return function(*args, **kwargs)
 
-        process = MainProcess(spawn_process=spawn_subprocess,
-                subprocess_nowindow=subprocess_nowindow)
+        process = MainProcess(spawn_subprocess=spawn_subprocess,
+                subprocess_newconsole=subprocess_newconsole)
         
         command = process.parse_process_params(*sys.argv[1::])
         if process.spawn_subprocess:
-            module = inspect.getmodule(redirected_from[0])
-            process.spawn_runsubprocess("<run:" + module.__name__
+            
+            process.spawn_runsubprocess("<run:" + function.__module__
                     + "." + function.__name__ + ">" + command
                     + "</run>")
 
-        process.append(FunctionEvent().parse_command(
-                CommandParser.encrypt(command), function))
-        sys.exit(process.run())
+        function_event, exit_sequence, exit_command = FunctionEvent().parse_command(
+                CommandParser.encrypt(command), exit_sequences=(","),
+                parse_trace = process.parse_trace, stdout_indent=0,
+                wrapper_function=function)
+
+        sys.exit(function_event.run())
 
     return wrapped_function
 
